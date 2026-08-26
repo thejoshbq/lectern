@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+.env
+.env.local
+.env*.local
+
+# Generated Bible corpus. Rebuild with `npm run bible:all`.
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+data/*.sqlite-shm
+
+# Cached upstream BSB release archives.
+vendor/
+
+.DS_Store
+*.log

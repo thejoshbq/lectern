@@ -1,0 +1,50 @@
+{
+  "name": "lectern",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bible:fetch": "tsx scripts/fetch-bsb.ts",
+    "bible:build": "tsx scripts/build-corpus.ts",
+    "bible:embed": "tsx scripts/build-embeddings.ts",
+    "bible:verify": "tsx scripts/verify-corpus.ts",
+    "bible:all": "npm run bible:fetch && npm run bible:build && npm run bible:verify && npm run bible:embed",
+    "lectern": "tsx scripts/ask.ts",
+    "evals": "tsx scripts/run-evals.ts"
+  },
+  "dependencies": {
+    "next": "16.3.2",
+    "openai": "^7.5.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
+    "@huggingface/transformers": "^4.2.0",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4.1.18",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "unrs-resolver@1.12.2": true
+  }
+}

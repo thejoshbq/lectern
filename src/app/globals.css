@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/*
+ * Matte black. Pure #000 against pure #fff is harsh over the long reading
+ * sessions this app is meant to encourage, so the base is a lifted near-black
+ * and the foreground is a warm off-white.
+ */
+@theme {
+  --color-base: #0a0a0a;
+  --color-raised: #121212;
+  --color-overlay: #181818;
+  --color-line: #242424;
+  --color-line-strong: #333333;
+
+  --color-ink: #ede9e3;
+  --color-ink-muted: #a3a09b;
+  --color-ink-faint: #6f6c68;
+
+  --color-accent: #c8a45c;
+  --color-accent-muted: #8a7440;
+
+  --color-danger: #b4634f;
+
+  --font-scripture: var(--font-scripture), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Scrollbars styled to disappear into the matte surface. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-line-strong);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
