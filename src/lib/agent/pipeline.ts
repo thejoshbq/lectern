@@ -43,6 +43,9 @@ import {
   type Expansion,
   type Selection,
 } from "./schema.ts";
+import type { Stage } from "./wire.ts";
+
+export type { Stage };
 
 export interface AskOptions {
   /** Prior turns, oldest first. */
@@ -54,14 +57,6 @@ export interface AskOptions {
   /** Reports stage transitions, for streaming progress to the UI. */
   onStage?: (stage: Stage) => void;
 }
-
-export type Stage =
-  | "checking"
-  | "understanding"
-  | "searching"
-  | "reading"
-  | "verifying"
-  | "done";
 
 export interface AskResult {
   kind: "answer" | "crisis";
@@ -196,7 +191,7 @@ export async function ask(text: string, options: AskOptions = {}): Promise<AskRe
       messages,
       tool: SELECTION_TOOL,
       schema: selectionSchema,
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
 
     selection = value;
@@ -237,9 +232,9 @@ export async function ask(text: string, options: AskOptions = {}): Promise<AskRe
 
     verified = result.citations;
 
-    // A clean response, or the last attempt. Either way this is the answer:
-    // whatever failed verification has already been stripped, so what remains
-    // is safe to render even when problems were found.
+    // Retry once with the failures so the model can correct a specific
+    // citation rather than starting over. After the last attempt, fields
+    // that still fail the audits are dropped below rather than shipped.
     if (problems.length === 0 || attempt === MAX_ATTEMPTS) break;
 
     messages.push(
@@ -252,16 +247,38 @@ export async function ask(text: string, options: AskOptions = {}): Promise<AskRe
   const noRelevant =
     selection?.noRelevantScripture === true || verified.length === 0;
 
+  // Citations that failed verification were never added to `verified`.
+  // Prose, prayer, and correction are withheld the same way: a field that
+  // still fails the audits after the last attempt does not ship.
   return {
     kind: "answer",
-    response: selection?.response ?? "",
+    response: keepAuditedText(selection?.response, verified) ?? "",
     citations: verified,
-    prayer: selection?.prayer,
-    correction: selection?.correction,
+    prayer: keepAuditedText(selection?.prayer, verified),
+    correction: keepAuditedText(selection?.correction, verified),
     triageNote: selection?.triageNote,
     noRelevantScripture: noRelevant,
     diagnostics: { ...diagnostics, elapsedMs: Date.now() - started },
   };
+}
+
+/**
+ * A model field ships only when the same audits that reject citations also
+ * pass. Retry uses those problems as feedback; this is the last-attempt strip.
+ */
+function keepAuditedText(
+  text: string | undefined,
+  verified: VerifiedCitation[],
+): string | undefined {
+  if (!text) return undefined;
+
+  const problems = [
+    ...auditProse(text, verified),
+    ...auditQuotations(text, verified),
+    ...auditVoice(text),
+  ];
+
+  return problems.length === 0 ? text : undefined;
 }
 
 async function expandQuery(text: string): Promise<Expansion> {

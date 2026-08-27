@@ -88,7 +88,7 @@ export const citationSchema = z.object({
 });
 
 export const selectionSchema = z.object({
-  citations: z.array(citationSchema).max(6),
+  citations: z.array(citationSchema).max(9),
   response: z.string().min(1),
   prayer: z.string().optional(),
   correction: z.string().optional(),
@@ -107,9 +107,9 @@ export const SELECTION_TOOL = {
     properties: {
       citations: {
         type: "array",
-        maxItems: 6,
+        maxItems: 9,
         description:
-          "Passages that genuinely bear on the request. Prefer two or three well-chosen ones over many. May be empty if nothing fits.",
+          "Passages that genuinely bear on the request. Prefer two or three well-chosen passages; you may cite several ranges from the same retrieved passage when walking through it in parts. Each range is rendered where you name it. May be empty if nothing fits.",
         items: {
           type: "object",
           properties: {
@@ -134,7 +134,7 @@ export const SELECTION_TOOL = {
       response: {
         type: "string",
         description:
-          "A brief summary of what the cited Word says and why it bears on what they brought, in the register of \"God's Word reminds us that…\". Name each passage by reference as you turn to it — a reference on its own line is best — so the application can insert the verse text there. Scripture is the subject. Do not speak as God or as this tool. Do not quote verse text.",
+          "A guided reading of the cited Word, in the register of \"God's Word reminds us that…\". Walk through each passage in natural units. Name each exact range on its own line so the application can insert the verse text there, then linger on the situation, what that beat is doing, and why it bears on what they brought. Cite the chunks you want rendered, not a whole retrieved span if it has internal units. Scripture is the subject. Do not speak as God or as this tool. Do not quote verse text.",
       },
       prayer: {
         type: "string",

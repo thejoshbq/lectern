@@ -15,6 +15,8 @@
 import { ask, type Stage } from "../src/lib/agent/pipeline.ts";
 import { getCorpusInfo, getPassageVerses } from "../src/lib/bible/corpus.ts";
 import { retrieve } from "../src/lib/bible/retrieve.ts";
+import type { VerifiedCitation } from "../src/lib/bible/verify.ts";
+import { composeAnswer } from "../src/lib/client/compose.ts";
 import { loadEnv } from "../src/lib/env.ts";
 
 loadEnv();
@@ -47,6 +49,18 @@ function wrap(text: string, width = 76, indent = ""): string {
   return lines.join("\n");
 }
 
+function printCitation(citation: VerifiedCitation) {
+  console.log(style.gold(style.bold(citation.reference)));
+  if (citation.passage.heading) {
+    console.log(style.dim(`${citation.passage.heading} · ${citation.genre}`));
+  }
+  for (const verse of citation.verses) {
+    console.log(style.italic(wrap(`${verse.verse} ${verse.text}`, 72, "  ")));
+  }
+  console.log(style.dim(wrap(`Context: ${citation.context}`, 72, "  ")));
+  console.log("");
+}
+
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
   const chunks: Buffer[] = [];
@@ -65,7 +79,7 @@ async function main() {
 
   if (!text) {
     console.error(
-      'Usage: npm run lectern -- "your prayer or question"\n' +
+      "Usage: npm run lectern -- \"I'd like to pray for...\"\n" +
         "       npm run lectern -- --retrieval-only \"...\"   (no API key needed)\n" +
         "       npm run lectern -- --diagnostics \"...\"",
     );
@@ -137,18 +151,6 @@ async function main() {
 
   console.log("");
 
-  for (const citation of result.citations) {
-    console.log(style.gold(style.bold(citation.reference)));
-    if (citation.passage.heading) {
-      console.log(style.dim(`${citation.passage.heading} · ${citation.genre}`));
-    }
-    for (const verse of citation.verses) {
-      console.log(style.italic(wrap(`${verse.verse} ${verse.text}`, 72, "  ")));
-    }
-    console.log(style.dim(wrap(`Context: ${citation.context}`, 72, "  ")));
-    console.log("");
-  }
-
   if (result.noRelevantScripture && result.citations.length === 0) {
     console.log(
       style.dim("No passage was offered — nothing retrieved genuinely fit."),
@@ -156,8 +158,20 @@ async function main() {
     console.log("");
   }
 
-  console.log(wrap(result.response));
-  console.log("");
+  const byReference = new Map(
+    result.citations.map((citation) => [citation.reference, citation]),
+  );
+
+  for (const block of composeAnswer(result.response, result.citations)) {
+    if (block.type === "prose") {
+      console.log(wrap(block.text));
+      console.log("");
+      continue;
+    }
+
+    const citation = byReference.get(block.reference);
+    if (citation) printCitation(citation);
+  }
 
   if (result.correction) {
     console.log(style.bold("A gentle word"));

@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 import { ask } from "@/lib/agent/pipeline";
-import { serializeResult, type StreamEvent } from "@/lib/agent/serialize";
+import { serializeResult } from "@/lib/agent/serialize";
+import type { StreamEvent } from "@/lib/agent/wire";
+import { getSession } from "@/lib/auth/session";
 
 /**
  * The pipeline reads a SQLite file from disk and may hold a local embedding
@@ -24,6 +26,11 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Sign in required." }, { status: 401 });
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();

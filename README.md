@@ -1,11 +1,11 @@
 # Lectern
 
-A tool for praying with Scripture. You can write the prayer itself — to God,
-in your own words — or bring a worry or a question. It answers with passages
-from the Bible that actually speak to it — shown in their own context, never
-as isolated verses — together with a short summary of what that Word says,
-and a prompt for how to pray it yourself. It does not speak as God, and it
-does not write a prayer for you to copy.
+A tool for praying with Scripture. Say what you'd like to pray for — a worry,
+a thanks, a question. It answers with passages from the Bible that actually
+speak to it — shown in their own context, never as isolated verses — together
+with a short summary of what that Word says, and a prompt for how to pray it
+yourself. It does not speak as God, and it does not write a prayer for you to
+copy.
 
 It is not a replacement for prayer, for reading the Bible, or for your church.
 It is meant to send you back to all three.
@@ -33,10 +33,14 @@ Requires Node 22.5 or newer, for the built-in `node:sqlite`.
 
 ```bash
 npm install
-cp .env.example .env.local   # then add your OPENROUTER_API_KEY
+cp .env.example .env.local
 npm run bible:all            # download, build, verify, and embed the corpus
 npm run dev
 ```
+
+Fill in `.env.local` before starting the web app: `OPENROUTER_API_KEY` for the
+models, plus `AUTH_SECRET`, `DATABASE_URL`, and `LECTERN_ADMIN_CODE` so the
+app is not open to the public. See [Authentication](#authentication).
 
 Models are reached through [OpenRouter](https://openrouter.ai), so one key
 covers both of them. Get it from [openrouter.ai/keys](https://openrouter.ai/keys).
@@ -72,10 +76,42 @@ Run the four steps separately if you need to:
 | `npm run bible:verify` | Checks 66 books, 1,189 chapters, no unexpected gaps |
 | `npm run bible:embed` | Generates passage embeddings for semantic search |
 
+## Authentication
+
+The web app is not public. `/api/ask` spends OpenRouter tokens, so every
+request needs a signed-in user, and a new account can only be created with a
+shared invite code. Anyone who has `LECTERN_ADMIN_CODE` can register; anyone
+who does not cannot.
+
+Accounts live in Postgres. [Supabase](https://supabase.com) works: in the
+project dashboard click **Connect**, copy the **Transaction pooler** URI
+(port 6543), and paste it into `DATABASE_URL`. Neon and any other Postgres
+that accepts a standard URI work the same way. The users table is created
+on first use.
+
+Generate a session signing secret with:
+
+```bash
+openssl rand -base64 32
+```
+
+| Variable | Role |
+| --- | --- |
+| `AUTH_SECRET` | Signs session cookies. At least 32 characters. |
+| `DATABASE_URL` | Postgres URI (`POSTGRES_URL` is also accepted). For Supabase, the Transaction pooler URI. |
+| `LECTERN_ADMIN_CODE` | Invite code required to create an account |
+
+Set the same three values on the Vercel project. Rotate the invite code if it
+leaks. The CLI (`npm run lectern`) does not use this path; it still talks to
+the models directly on your machine.
+
+Conversations remain in the browser. An account only answers who may call the
+model, not what they prayed.
+
 ## Using it without the browser
 
 ```bash
-npm run lectern -- "I'm anxious about money and rent is due."
+npm run lectern -- "I'd like to pray for provision — rent is due."
 npm run lectern -- --retrieval-only "grief"   # search only, no API key needed
 npm run lectern -- --diagnostics "..."        # show candidates and rejections
 ```
@@ -83,7 +119,7 @@ npm run lectern -- --diagnostics "..."        # show candidates and rejections
 ## Tests
 
 ```bash
-npm test           # 94 tests, offline, no API key
+npm test           # offline, no API key
 npm run evals      # retrieval quality against known cases
 npm run evals -- --adversarial   # full pipeline; needs OPENROUTER_API_KEY
 ```

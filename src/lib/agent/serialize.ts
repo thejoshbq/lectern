@@ -7,47 +7,15 @@
  */
 
 import type { VerifiedCitation } from "../bible/verify.ts";
-import type { AskResult, Stage } from "./pipeline.ts";
+import type { AskResult } from "./pipeline.ts";
+import type { ClientCitation, ClientResult, ClientVerse } from "./wire.ts";
 
-export interface ClientVerse {
-  chapter: number;
-  verse: number;
-  text: string;
-  segments: { marker: string; text: string; wj?: boolean }[];
-  redLetter: boolean;
-  /** True when this verse is part of the cited range rather than context. */
-  cited: boolean;
-}
-
-export interface ClientCitation {
-  reference: string;
-  heading: string | null;
-  genre: string;
-  testament: string;
-  context: string;
-  relevance?: string;
-  /** Just the cited verses. */
-  verses: ClientVerse[];
-  /** The whole pericope, for the expandable context view. */
-  passageRef: string;
-  passageVerses: ClientVerse[];
-  omittedWithin: { reference: string; note: string }[];
-}
-
-export interface ClientResult {
-  kind: "answer" | "crisis";
-  response: string;
-  citations: ClientCitation[];
-  prayer?: string;
-  correction?: string;
-  triageNote?: string;
-  noRelevantScripture: boolean;
-}
-
-export type StreamEvent =
-  | { type: "stage"; stage: Stage }
-  | { type: "result"; result: ClientResult }
-  | { type: "error"; message: string };
+export type {
+  ClientCitation,
+  ClientResult,
+  ClientVerse,
+  StreamEvent,
+} from "./wire.ts";
 
 function toClientVerse(
   verse: {

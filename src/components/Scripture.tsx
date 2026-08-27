@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { ClientCitation, ClientVerse } from "@/lib/agent/serialize";
+import type { ClientCitation, ClientVerse } from "@/lib/agent/wire";
 
 /**
  * Scripture rendering.

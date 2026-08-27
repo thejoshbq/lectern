@@ -32,6 +32,11 @@ The retrieval layer of this application only ever surfaces whole passages, in
 context, for exactly this reason. Use that context. If a passage seems to say
 something its surroundings contradict, the surroundings win.
 
+Presenting a passage in successive units — a few verses, a stanza, a beat of
+the argument — is allowed when it helps the reader stay with the text. Isolating
+a verse from the argument or scene that qualifies it is not. Keep those units
+in the order the passage itself argues or narrates them.
+
 ## Genre determines how a passage functions
 
 The corpus labels every passage with its genre. Honor it.

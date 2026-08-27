@@ -3,13 +3,13 @@
 /**
  * Conversation history, stored in the browser.
  *
- * Sessions are anonymous and the server is stateless. What someone brings here
- * — their confessions, their fears, their prayers for their marriage — stays
- * on their own machine. There is no account to create and nothing to delete
- * from a server later, because nothing was sent there to begin with.
+ * An account only gates who may call the model. What someone brings here —
+ * their confessions, their fears, their prayers for their marriage — stays
+ * on their own machine. The server is given the current turn so it can
+ * answer, and then it forgets.
  */
 
-import type { ClientResult } from "../agent/serialize";
+import type { ClientResult } from "../agent/wire";
 
 const DB_NAME = "lectern";
 const LEGACY_DB_NAME = "ghost";

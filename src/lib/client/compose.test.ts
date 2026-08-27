@@ -50,6 +50,33 @@ describe("composeAnswer", () => {
     ]);
   });
 
+  it("interleaves smaller ranges from one passage with analysis between them", () => {
+    const blocks = composeAnswer(
+      "God's Word meets worry without promising a pleasant outcome.\n\n" +
+        "Matthew 6:25-27\n\n" +
+        "Jesus is speaking to disciples about daily provision, not issuing a formula for rent.\n\n" +
+        "Matthew 6:28-30\n\n" +
+        "The argument then turns from food to clothing, still under the Father's care.\n\n" +
+        "Matthew 6:31-34\n\n" +
+        "The close is a summons to seek the kingdom rather than a timeline.",
+      [
+        { reference: "Matthew 6:25-27" },
+        { reference: "Matthew 6:28-30" },
+        { reference: "Matthew 6:31-34" },
+      ],
+    );
+
+    expect(blocks.map((b) => (b.type === "citation" ? b.reference : "prose"))).toEqual([
+      "prose",
+      "Matthew 6:25-27",
+      "prose",
+      "Matthew 6:28-30",
+      "prose",
+      "Matthew 6:31-34",
+      "prose",
+    ]);
+  });
+
   it("treats a paragraph that is only a reference as a slot", () => {
     const blocks = composeAnswer(
       "God's Word meets worry without promising a pleasant outcome.\n\n" +

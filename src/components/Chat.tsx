@@ -1,10 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type Ref } from "react";
 
-import type { ClientCitation, ClientResult, StreamEvent } from "@/lib/agent/serialize";
-import type { Stage } from "@/lib/agent/pipeline";
+import type {
+  ClientCitation,
+  ClientResult,
+  Stage,
+  StreamEvent,
+} from "@/lib/agent/wire";
 import { composeAnswer } from "@/lib/client/compose";
+import { finishNdjson, takeNdjsonLines } from "@/lib/client/stream";
 import {
   deleteConversation,
   listConversations,
@@ -26,13 +32,14 @@ const STAGE_LABELS: Record<Stage, string> = {
 };
 
 const OPENERS = [
-  "Father, I'm anxious about money and I can't seem to stop worrying.",
-  "Lord, my father died this year and I don't know how to bring this to You.",
-  "Father, I keep falling into the same sin and I'm tired of confessing it.",
-  "Lord, I want to thank You, but I don't have the words.",
+  "I'd like to pray for provision — I'm anxious about money and I can't stop worrying.",
+  "I'd like to pray as I grieve my father.",
+  "I'd like to pray about a sin I keep falling into.",
+  "I'd like to give thanks, but I don't have the words.",
 ];
 
-export function Chat() {
+export function Chat({ email }: { email: string }) {
+  const router = useRouter();
   const [conversation, setConversation] = useState<Conversation>(() => ({
     id: newConversationId(),
     title: "",
@@ -56,7 +63,7 @@ export function Chat() {
 
   const busy = stage !== null;
 
-  // Reopen where the reader left off. Someone who closed the tab mid-prayer
+  // Reopen where the reader left off. Someone who closed the tab mid-request
   // should not lose it, and history is worthless if it is only ever written.
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +172,11 @@ export function Chat() {
           body: JSON.stringify({ message: trimmed, history: history.slice(-8) }),
         });
 
+        if (response.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
         if (!response.ok || !response.body) {
           const detail = await response.json().catch(() => null);
           throw new Error(detail?.error ?? "The request failed.");
@@ -175,21 +187,31 @@ export function Chat() {
         let buffer = "";
         let result: ClientResult | null = null;
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
+        const applyLines = (lines: string[]) => {
           for (const line of lines) {
-            if (!line.trim()) continue;
             const event = JSON.parse(line) as StreamEvent;
             if (event.type === "stage") setStage(event.stage);
             else if (event.type === "result") result = event.result;
             else if (event.type === "error") throw new Error(event.message);
           }
+        };
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+          }
+          if (done) {
+            buffer += decoder.decode();
+            const { lines, rest } = takeNdjsonLines(buffer);
+            applyLines(lines);
+            applyLines(finishNdjson(rest));
+            break;
+          }
+
+          const next = takeNdjsonLines(buffer);
+          buffer = next.rest;
+          applyLines(next.lines);
         }
 
         if (!result) throw new Error("The response ended unexpectedly.");
@@ -222,21 +244,29 @@ export function Chat() {
         setPending(null);
       }
     },
-    [busy, conversation.turns],
+    [busy, conversation.turns, router],
   );
 
   const empty = conversation.turns.length === 0 && !pending;
 
+  const pickOpener = useCallback(
+    (text: string) => {
+      setInput(text);
+      void submit(text);
+    },
+    [submit],
+  );
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5">
-      <header className="flex items-baseline justify-between gap-4 py-8">
+      <header className="flex shrink-0 items-baseline justify-between gap-4 py-8">
         <h1 className="text-ink text-sm font-medium tracking-[0.2em] uppercase">
           Lectern
         </h1>
 
         <div className="flex items-baseline gap-4">
-          <p className="text-ink-faint hidden text-xs sm:block">
-            Berean Standard Bible
+          <p className="text-ink-faint hidden max-w-40 truncate text-xs sm:block">
+            {email}
           </p>
           {history.length > 0 && (
             <button
@@ -258,6 +288,14 @@ export function Chat() {
               New
             </button>
           )}
+          <form action="/api/auth/logout" method="post">
+            <button
+              type="submit"
+              className="text-ink-faint hover:text-ink focus-visible:ring-accent/50 rounded px-1.5 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       </header>
 
@@ -271,8 +309,8 @@ export function Chat() {
         />
       )}
 
-      <main className="flex-1 pb-4">
-        {empty && <Welcome onPick={(text) => void submit(text)} />}
+      <main className="min-h-0 flex-1 overflow-y-auto pb-4">
+        {empty && <Welcome onPick={pickOpener} />}
 
         {conversation.turns.map((turn, index) => (
           <Turn
@@ -306,7 +344,7 @@ export function Chat() {
         <div ref={bottomRef} />
       </main>
 
-      <div className="bg-base/95 sticky bottom-0 pb-5 backdrop-blur">
+      <div className="bg-base/95 shrink-0 pb-5">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -315,7 +353,7 @@ export function Chat() {
           className="border-line bg-raised focus-within:border-line-strong rounded-xl border transition-colors"
         >
           <label htmlFor="request" className="sr-only">
-            Write your prayer, or a question
+            I'd like to pray for…
           </label>
           <textarea
             id="request"
@@ -335,7 +373,7 @@ export function Chat() {
             }}
             rows={2}
             disabled={busy}
-            placeholder="Write your prayer — or a question"
+            placeholder="I'd like to pray for…"
             className="text-ink placeholder:text-ink-faint w-full resize-none bg-transparent px-4 py-3 text-[0.9375rem] leading-relaxed outline-none disabled:opacity-50"
           />
           <div className="flex items-center justify-between px-4 pb-3">
@@ -343,7 +381,8 @@ export function Chat() {
               A tool, not a replacement for prayer, Scripture, or your church.
             </p>
             <button
-              type="submit"
+              type="button"
+              onClick={() => void submit(input)}
               disabled={busy || !input.trim()}
               className="bg-overlay text-ink hover:bg-line disabled:text-ink-faint focus-visible:ring-accent/50 rounded-lg px-3.5 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:hover:bg-overlay"
             >
@@ -399,7 +438,7 @@ function HistoryPanel({
             >
               <span className="block truncate">{c.title || "Untitled"}</span>
               <span className="text-ink-faint text-xs">
-                {c.turns.length} {c.turns.length === 1 ? "prayer" : "prayers"}
+                {c.turns.length} {c.turns.length === 1 ? "request" : "requests"}
               </span>
             </button>
             <button
@@ -426,9 +465,8 @@ function Welcome({ onPick }: { onPick: (text: string) => void }) {
   return (
     <div className="py-10">
       <p className="font-scripture text-ink text-xl leading-relaxed">
-        Write the prayer itself — to God, in your own words — or bring a
-        worry or a question. Receive Scripture that speaks to it, in its own
-        context.
+        Say what you'd like to pray for — a worry, a thanks, a question.
+        Receive Scripture that speaks to it, in its own context.
       </p>
       <p className="text-ink-muted mt-4 text-sm leading-relaxed">
         Every passage here is read from the Berean Standard Bible and checked
