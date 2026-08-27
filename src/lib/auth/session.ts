@@ -16,8 +16,8 @@ export async function getSession(): Promise<Session | null> {
   return verifySession(token, authSecret());
 }
 
-export async function setSessionCookie(session: Session): Promise<void> {
-  const token = await signSession(session, authSecret());
+export async function setSessionCookie(): Promise<void> {
+  const token = await signSession(authSecret());
   (await cookies()).set(
     SESSION_COOKIE,
     token,

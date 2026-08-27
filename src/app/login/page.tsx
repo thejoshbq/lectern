@@ -8,19 +8,9 @@ export default function LoginPage() {
       </h1>
       <p className="text-ink mt-8 text-xl leading-relaxed">Sign in</p>
       <p className="text-ink-muted mt-2 text-sm leading-relaxed">
-        This tool is private. Sign in with an account that was created with an
-        invite code.
+        This tool is private. Enter the password to use it.
       </p>
-      <CredentialsForm mode="login" />
-      <p className="text-ink-faint mt-6 text-sm">
-        Have an invite code?{" "}
-        <a
-          href="/register"
-          className="text-ink-muted hover:text-ink underline underline-offset-2"
-        >
-          Create an account
-        </a>
-      </p>
+      <CredentialsForm />
     </div>
   );
 }

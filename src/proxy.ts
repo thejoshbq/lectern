@@ -11,9 +11,7 @@ import { verifySession } from "@/lib/auth/token";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const publicPath =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname.startsWith("/api/auth/");
+    pathname === "/login" || pathname.startsWith("/api/auth/");
 
   if (publicPath) return NextResponse.next();
 

@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const session = await getSession();
   if (!session) redirect("/login");
-  return <Chat email={session.email} />;
+  return <Chat />;
 }

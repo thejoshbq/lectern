@@ -11,16 +11,14 @@ import type {
 } from "@/lib/agent/wire";
 import { composeAnswer } from "@/lib/client/compose";
 import { finishNdjson, takeNdjsonLines } from "@/lib/client/stream";
-import {
-  deleteConversation,
-  listConversations,
-  newConversationId,
-  saveConversation,
-  titleFrom,
-  type Conversation,
-  type StoredTurn,
-} from "@/lib/client/storage";
 import { Citation } from "./Scripture";
+
+interface StoredTurn {
+  id: string;
+  request: string;
+  result: ClientResult;
+  at: number;
+}
 
 const STAGE_LABELS: Record<Stage, string> = {
   checking: "Reading what you wrote",
@@ -38,22 +36,13 @@ const OPENERS = [
   "I'd like to give thanks, but I don't have the words.",
 ];
 
-export function Chat({ email }: { email: string }) {
+export function Chat() {
   const router = useRouter();
-  const [conversation, setConversation] = useState<Conversation>(() => ({
-    id: newConversationId(),
-    title: "",
-    turns: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }));
-
+  const [turns, setTurns] = useState<StoredTurn[]>([]);
   const [input, setInput] = useState("");
   const [stage, setStage] = useState<Stage | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Conversation[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const latestTurnRef = useRef<HTMLElement>(null);
@@ -63,21 +52,11 @@ export function Chat({ email }: { email: string }) {
 
   const busy = stage !== null;
 
-  // Reopen where the reader left off. Someone who closed the tab mid-request
-  // should not lose it, and history is worthless if it is only ever written.
+  // Drop leftover conversation stores from when history lived in IndexedDB.
   useEffect(() => {
-    let cancelled = false;
-
-    void listConversations().then((saved) => {
-      if (cancelled) return;
-      setHistory(saved);
-      const latest = saved[0];
-      if (latest && latest.turns.length > 0) setConversation(latest);
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    if (typeof indexedDB === "undefined") return;
+    indexedDB.deleteDatabase("lectern");
+    indexedDB.deleteDatabase("ghost");
   }, []);
 
   useEffect(() => {
@@ -86,13 +65,13 @@ export function Chat({ email }: { email: string }) {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const behavior: ScrollBehavior = reduceMotion ? "auto" : "smooth";
 
-    if (conversation.turns.length > previousTurnCount.current) {
-      previousTurnCount.current = conversation.turns.length;
+    if (turns.length > previousTurnCount.current) {
+      previousTurnCount.current = turns.length;
       latestTurnRef.current?.scrollIntoView({ behavior, block: "start" });
       return;
     }
 
-    previousTurnCount.current = conversation.turns.length;
+    previousTurnCount.current = turns.length;
 
     if (stage) {
       pendingRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -102,51 +81,13 @@ export function Chat({ email }: { email: string }) {
     if (error) {
       bottomRef.current?.scrollIntoView({ behavior, block: "end" });
     }
-  }, [conversation.turns.length, stage, error]);
+  }, [turns.length, stage, error]);
 
   const startNew = useCallback(() => {
     if (busy) return;
-    setConversation({
-      id: newConversationId(),
-      title: "",
-      turns: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    setTurns([]);
     setError(null);
-    setShowHistory(false);
   }, [busy]);
-
-  const openConversation = useCallback(
-    (target: Conversation) => {
-      if (busy) return;
-      setConversation(target);
-      setError(null);
-      setShowHistory(false);
-    },
-    [busy],
-  );
-
-  const removeConversation = useCallback(
-    async (id: string) => {
-      await deleteConversation(id);
-      setHistory((previous) => previous.filter((c) => c.id !== id));
-      // Erasing the conversation on screen should clear the screen too,
-      // otherwise "delete" only half means it.
-      setConversation((previous) =>
-        previous.id === id
-          ? {
-              id: newConversationId(),
-              title: "",
-              turns: [],
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            }
-          : previous,
-      );
-    },
-    [],
-  );
 
   const submit = useCallback(
     async (text: string) => {
@@ -160,7 +101,7 @@ export function Chat({ email }: { email: string }) {
 
       // Only prose crosses to the server as history; Scripture is re-resolved
       // from the corpus every turn rather than round-tripped through the client.
-      const history = conversation.turns.flatMap((turn) => [
+      const history = turns.flatMap((turn) => [
         { role: "user" as const, content: turn.request },
         { role: "assistant" as const, content: turn.result.response },
       ]);
@@ -223,20 +164,7 @@ export function Chat({ email }: { email: string }) {
           at: Date.now(),
         };
 
-        setConversation((previous) => {
-          const next: Conversation = {
-            ...previous,
-            title: previous.title || titleFrom(trimmed),
-            turns: [...previous.turns, turn],
-            updatedAt: Date.now(),
-          };
-          void saveConversation(next);
-          setHistory((saved) => [
-            next,
-            ...saved.filter((c) => c.id !== next.id),
-          ]);
-          return next;
-        });
+        setTurns((previous) => [...previous, turn]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong.");
       } finally {
@@ -244,10 +172,10 @@ export function Chat({ email }: { email: string }) {
         setPending(null);
       }
     },
-    [busy, conversation.turns, router],
+    [busy, turns, router],
   );
 
-  const empty = conversation.turns.length === 0 && !pending;
+  const empty = turns.length === 0 && !pending;
 
   const pickOpener = useCallback(
     (text: string) => {
@@ -265,19 +193,6 @@ export function Chat({ email }: { email: string }) {
         </h1>
 
         <div className="flex items-baseline gap-4">
-          <p className="text-ink-faint hidden max-w-40 truncate text-xs sm:block">
-            {email}
-          </p>
-          {history.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowHistory((v) => !v)}
-              aria-expanded={showHistory}
-              className="text-ink-faint hover:text-ink focus-visible:ring-accent/50 rounded px-1.5 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            >
-              History
-            </button>
-          )}
           {!empty && (
             <button
               type="button"
@@ -299,26 +214,14 @@ export function Chat({ email }: { email: string }) {
         </div>
       </header>
 
-      {showHistory && (
-        <HistoryPanel
-          conversations={history}
-          currentId={conversation.id}
-          onOpen={openConversation}
-          onDelete={(id) => void removeConversation(id)}
-          onClose={() => setShowHistory(false)}
-        />
-      )}
-
       <main className="min-h-0 flex-1 overflow-y-auto pb-4">
         {empty && <Welcome onPick={pickOpener} />}
 
-        {conversation.turns.map((turn, index) => (
+        {turns.map((turn, index) => (
           <Turn
             key={turn.id}
             turn={turn}
-            answerRef={
-              index === conversation.turns.length - 1 ? latestTurnRef : undefined
-            }
+            answerRef={index === turns.length - 1 ? latestTurnRef : undefined}
           />
         ))}
 
@@ -391,72 +294,6 @@ export function Chat({ email }: { email: string }) {
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-function HistoryPanel({
-  conversations,
-  currentId,
-  onOpen,
-  onDelete,
-  onClose,
-}: {
-  conversations: Conversation[];
-  currentId: string;
-  onOpen: (conversation: Conversation) => void;
-  onDelete: (id: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="border-line bg-raised mb-6 rounded-xl border">
-      <div className="border-line/70 flex items-center justify-between border-b px-4 py-2.5">
-        <p className="text-ink-faint text-xs tracking-wide uppercase">
-          Saved on this device
-        </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-ink-faint hover:text-ink rounded px-1 text-xs transition-colors"
-        >
-          Close
-        </button>
-      </div>
-
-      <ul className="max-h-72 overflow-y-auto py-1">
-        {conversations.map((c) => (
-          <li key={c.id} className="group flex items-center gap-2 px-2">
-            <button
-              type="button"
-              onClick={() => onOpen(c)}
-              className={[
-                "min-w-0 flex-1 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                c.id === currentId
-                  ? "text-ink"
-                  : "text-ink-muted hover:text-ink",
-              ].join(" ")}
-            >
-              <span className="block truncate">{c.title || "Untitled"}</span>
-              <span className="text-ink-faint text-xs">
-                {c.turns.length} {c.turns.length === 1 ? "request" : "requests"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(c.id)}
-              aria-label={`Delete ${c.title || "conversation"}`}
-              className="text-ink-faint hover:text-danger focus-visible:ring-accent/50 shrink-0 rounded px-2 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      <p className="border-line/70 text-ink-faint border-t px-4 py-2.5 text-xs leading-relaxed">
-        These never leave your browser. Nothing here was sent to a server or
-        kept after the answer came back.
-      </p>
     </div>
   );
 }
