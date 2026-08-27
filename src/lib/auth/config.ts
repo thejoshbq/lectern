@@ -12,14 +12,18 @@ export function authSecret(): string {
 }
 
 /**
- * Shared invite code required to create an account. Absent or empty means
- * registration is closed — fail closed rather than accidentally allow anyone
- * to mint a user and spend model tokens.
+ * Shared password that unlocks the web app. Absent or empty means the
+ * gate is closed — fail closed rather than accidentally let anyone spend
+ * model tokens.
  */
-export function adminSignupCode(): string | undefined {
-  const code = process.env.LECTERN_ADMIN_CODE;
-  if (!code) return undefined;
-  return code.length > 0 ? code : undefined;
+export function sitePassword(): string {
+  const password = process.env.LECTERN_PASSWORD?.trim();
+  if (!password) {
+    throw new Error(
+      "LECTERN_PASSWORD is missing. Set a shared password in the environment so the app is not open to the public.",
+    );
+  }
+  return password;
 }
 
 export function sessionCookieOptions(maxAge: number) {

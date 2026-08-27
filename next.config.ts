@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // The Bible corpus is a SQLite file read from disk at request time. Bundling
   // would both bloat the output and break the read-only file handle.
-  serverExternalPackages: ["node:sqlite", "postgres"],
+  serverExternalPackages: ["node:sqlite"],
   // Read at runtime by the API route: the corpus every citation resolves
   // against, and the doctrinal documents compiled into the system prompt.
   outputFileTracingIncludes: {

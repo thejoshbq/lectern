@@ -39,8 +39,8 @@ npm run dev
 ```
 
 Fill in `.env.local` before starting the web app: `OPENROUTER_API_KEY` for the
-models, plus `AUTH_SECRET`, `DATABASE_URL`, and `LECTERN_ADMIN_CODE` so the
-app is not open to the public. See [Authentication](#authentication).
+models, plus `AUTH_SECRET` and `LECTERN_PASSWORD` so the app is not open to
+the public. See [Authentication](#authentication).
 
 Models are reached through [OpenRouter](https://openrouter.ai), so one key
 covers both of them. Get it from [openrouter.ai/keys](https://openrouter.ai/keys).
@@ -79,15 +79,8 @@ Run the four steps separately if you need to:
 ## Authentication
 
 The web app is not public. `/api/ask` spends OpenRouter tokens, so every
-request needs a signed-in user, and a new account can only be created with a
-shared invite code. Anyone who has `LECTERN_ADMIN_CODE` can register; anyone
-who does not cannot.
-
-Accounts live in Postgres. [Supabase](https://supabase.com) works: in the
-project dashboard click **Connect**, copy the **Transaction pooler** URI
-(port 6543), and paste it into `DATABASE_URL`. Neon and any other Postgres
-that accepts a standard URI work the same way. The users table is created
-on first use.
+request needs a valid session. There is one shared password: anyone who has
+`LECTERN_PASSWORD` can unlock the app; anyone who does not cannot.
 
 Generate a session signing secret with:
 
@@ -98,15 +91,14 @@ openssl rand -base64 32
 | Variable | Role |
 | --- | --- |
 | `AUTH_SECRET` | Signs session cookies. At least 32 characters. |
-| `DATABASE_URL` | Postgres URI (`POSTGRES_URL` is also accepted). For Supabase, the Transaction pooler URI. |
-| `LECTERN_ADMIN_CODE` | Invite code required to create an account |
+| `LECTERN_PASSWORD` | Shared password required to use the web app |
 
-Set the same three values on the Vercel project. Rotate the invite code if it
+Set the same two values on the Vercel project. Rotate the password if it
 leaks. The CLI (`npm run lectern`) does not use this path; it still talks to
 the models directly on your machine.
 
-Conversations remain in the browser. An account only answers who may call the
-model, not what they prayed.
+Nothing a reader types is stored. Follow-ups in the current tab can still
+use the sitting as context; a reload starts blank.
 
 ## Using it without the browser
 

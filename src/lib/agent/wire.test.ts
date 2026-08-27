@@ -9,7 +9,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CLIENT_FILES = [
   "src/components/Chat.tsx",
   "src/components/Scripture.tsx",
-  "src/lib/client/storage.ts",
   "src/lib/client/stream.ts",
   "src/lib/agent/wire.ts",
 ] as const;
